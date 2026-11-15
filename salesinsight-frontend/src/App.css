@@ -150,3 +150,114 @@ html {
 #marketing {
   scroll-margin-top: 24px;
 }
+
+
+/* Interactive Filters & Enhancements */
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: 1px solid #e9ebf2;
+  border-radius: 12px;
+}
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+.filter-select {
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+.filter-select:focus {
+  border-color: #6366f1;
+}
+
+.chart-explanation {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.5;
+  margin-top: 14px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border-left: 3px solid #6366f1;
+}
+
+.table-search-input {
+  width: 100%;
+  max-width: 260px;
+  padding: 7px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 12px;
+  margin-bottom: 12px;
+  background: #f8fafc;
+}
+.table-search-input:focus {
+  border-color: #6366f1;
+  background: #fff;
+  outline: none;
+}
+
+/* BA Step Process Banner */
+.ba-workflow-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #ffffff;
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  font-size: 12px;
+}
+.ba-workflow-step-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  color: #1e293b;
+  font-weight: 500;
+}
+.ba-workflow-step-btn:hover {
+  background: #f1f4fd;
+  transform: translateY(-1px);
+}
+.ba-badge {
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.ba-badge.desc { background: #e0e7ff; color: #4338ca; }
+.ba-badge.pred { background: #f3e8ff; color: #6b21a8; }
+.ba-badge.presc { background: #dcfce7; color: #15803d; }
+.ba-arrow { color: #94a3b8; font-weight: 800; }
+
+#step-descriptive,
+#step-predictive,
+#step-prescriptive {
+  scroll-margin-top: 24px;
+}
