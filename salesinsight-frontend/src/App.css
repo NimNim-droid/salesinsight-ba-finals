@@ -129,12 +129,13 @@ footer { text-align: center; color: #a0a5b5; font-size: 10px; padding: 22px 0 5p
   .menu-overlay { display: block; position: fixed; inset: 0; background: #171a2c66; border: 0; z-index: 15; }
   .mobile-menu { display: grid; place-items: center; background: #fff; color: #424760; border: 1px solid #e7e9f1; border-radius: 9px; padding: 8px; }
   .mobile-close { display: block; margin-left: auto; border: 0; background: transparent; color: #777; }
-  .main-content { margin-left: 0; padding: 20px 14px; }
+  .main-content { margin-left: 0; padding: 20px 14px; overflow-x: hidden; }
   h1 { font-size: 21px; }
   .topbar { gap: 10px; }
   .refresh-button { padding: 9px; }
   .refresh-button span { display: none; }
   .welcome-row { align-items: flex-start; flex-direction: column; margin-top: 25px; }
+  .live-badge { white-space: normal; max-width: 100%; }
   .stats-grid { gap: 10px; }
   .stat-card { padding: 14px; }
   .stat-top { font-size: 11px; }
@@ -217,6 +218,7 @@ html {
 /* BA Step Process Banner */
 .ba-workflow-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -255,6 +257,27 @@ html {
 .ba-badge.pred { background: #f3e8ff; color: #6b21a8; }
 .ba-badge.presc { background: #dcfce7; color: #15803d; }
 .ba-arrow { color: #94a3b8; font-weight: 800; }
+
+@media (max-width: 650px) {
+  .ba-workflow-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+  .ba-workflow-step-btn {
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+  }
+  .ba-arrow {
+    display: none;
+  }
+  .table-search-input {
+    max-width: 100%;
+    margin-bottom: 0;
+  }
+}
 
 #step-descriptive,
 #step-predictive,
