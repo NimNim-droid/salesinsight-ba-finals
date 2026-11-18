@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class AnalyticsController extends Controller
@@ -16,6 +17,11 @@ class AnalyticsController extends Controller
         // ----------------------------------------------------
         $period = $request->query('period', 'all_time'); // 'all_time', 'this_month', 'last_month', 'this_year'
         $selectedCategory = $request->query('category', 'all');
+
+        $version = (int) Cache::get('analytics_version', 1);
+        $cacheKey = "analytics:v{$version}:{$period}:{$selectedCategory}";
+
+        $payload = Cache::remember($cacheKey, 300, function () use ($period, $selectedCategory) {
 
         $driver = DB::connection()->getDriverName();
         $monthExpr = match ($driver) {
@@ -72,6 +78,12 @@ class AnalyticsController extends Controller
             ->whereColumn('inventories.stock_quantity', '<=', 'inventories.reorder_level');
         $applyCategoryFilter($lowStockQuery);
         $lowStock = $lowStockQuery->count();
+
+        $outOfStockQuery = DB::table('inventories')
+            ->join('products', 'inventories.product_id', '=', 'products.id')
+            ->where('inventories.stock_quantity', '<=', 0);
+        $applyCategoryFilter($outOfStockQuery);
+        $outOfStock = $outOfStockQuery->count();
 
         // ----------------------------------------------------
         // 2. DESCRIPTIVE: MONTHLY SALES TREND
@@ -250,6 +262,7 @@ class AnalyticsController extends Controller
                 $suggestedReorder = max(10, $predictedDemand + $safetyStock - $stock);
 
                 return [
+                    'product_id' => (int) $row->product_id,
                     'name' => $row->name,
                     'category' => $row->category,
                     'stock_quantity' => $stock,
@@ -264,24 +277,35 @@ class AnalyticsController extends Controller
         // ----------------------------------------------------
         // 9. PLAIN-ENGLISH CHART INSIGHTS (Requirement 4)
         // ----------------------------------------------------
-        $topCategoryName = $salesByCategory->first()->category ?? 'Keyboards';
+        $topCategoryName = $salesByCategory->first()->category ?? 'N/A';
         $topCategoryRev = (float) ($salesByCategory->first()->revenue ?? 0);
         $topCategoryPct = $totalRevenue > 0 ? round(($topCategoryRev / $totalRevenue) * 100, 1) : 0;
 
-        $topProductName = $topProducts->first()->name ?? 'Logitech MX Keys Mini';
+        $topProductName = $topProducts->first()->name ?? 'N/A';
         $topProductRev = (float) ($topProducts->first()->revenue ?? 0);
 
+        $bestChannel = $marketingByPlatform
+            ->filter(fn ($row) => $row['conversions'] > 0)
+            ->sortBy('cost_per_conversion')
+            ->first();
+        $bestPlatform = $bestChannel['platform'] ?? 'TikTok';
+        $cheapestCpa = $bestChannel['cost_per_conversion'] ?? 0;
+
         $insights = [
-            'monthly_sales' => "Monthly revenue shows consistent demand, averaging ₱" . number_format($forecastRevenue, 0) . " across peak operating periods.",
+            'monthly_sales' => "Monthly revenue averages ₱" . number_format($forecastRevenue, 0) . " across the last 3 active periods.",
             'category' => "{$topCategoryName} generated the highest revenue among all product categories at ₱" . number_format($topCategoryRev, 0) . " ({$topCategoryPct}% of total sales).",
             'top_products' => "{$topProductName} is the #1 best-selling product, contributing ₱" . number_format($topProductRev, 0) . " in total sales.",
-            'marketing' => "TikTok delivered the highest return on ad spend with the lowest acquisition cost of ₱46.48 per buyer.",
+            'marketing' => "{$bestPlatform} delivered the highest return on ad spend with the lowest acquisition cost of ₱" . number_format($cheapestCpa, 2) . " per buyer.",
         ];
+
+        $inventoryAdvice = $lowStock > 0
+            ? "Replenish the {$lowStock} flagged product(s) using the calculated Suggested Reorder quantities to avoid stock shortages."
+            : 'All monitored products currently have healthy stock levels above their safety reorder threshold.';
 
         // ----------------------------------------------------
         // 10. FINAL API PAYLOAD
         // ----------------------------------------------------
-        return response()->json([
+        return [
             'case_study' => [
                 'company' => 'SalesInsight Gadget Store',
                 'location' => 'Cebu City, Philippines',
@@ -293,6 +317,7 @@ class AnalyticsController extends Controller
                 'total_customers' => $totalCustomers,
                 'total_products' => $totalProducts,
                 'low_stock_products' => $lowStock,
+                'out_of_stock_products' => $outOfStock,
             ],
             'active_filters' => [
                 'period' => $period,
@@ -307,15 +332,22 @@ class AnalyticsController extends Controller
             'forecast' => [
                 'method' => '3-Month Moving Average (Month 1 + Month 2 + Month 3) / 3',
                 'estimated_monthly_revenue' => $forecastRevenue,
-                'explanation' => "The estimated monthly revenue is ₱" . number_format($forecastRevenue, 0) . " based on the average revenue of the previous three months.",
+                'last_3_months' => $last3Months->values()->map(fn ($m) => [
+                    'month' => $m->month,
+                    'revenue' => round((float) $m->revenue, 2),
+                ]),
+                'explanation' => "The estimated monthly revenue is ₱" . number_format($forecastRevenue, 0) . " based on the average revenue of the previous three active months.",
             ],
             'prescriptive' => [
-                'best_platform' => 'TikTok',
-                'cheapest_cpa' => 46.48,
-                'marketing_advice' => 'TikTok has the lowest cost per buyer among compared platforms (₱46.48/buyer). Consider allocating more of the advertising budget to TikTok.',
-                'inventory_advice' => 'Replenish the 8 flagged products using the calculated Suggested Reorder quantities to avoid stock shortages.',
+                'best_platform' => $bestPlatform,
+                'cheapest_cpa' => $cheapestCpa,
+                'marketing_advice' => "{$bestPlatform} has the lowest cost per buyer among compared platforms (₱" . number_format($cheapestCpa, 2) . "/buyer). Consider allocating more of the advertising budget to {$bestPlatform}.",
+                'inventory_advice' => $inventoryAdvice,
             ],
             'insights' => $insights,
-        ]);
+        ];
+        });
+
+        return response()->json($payload);
     }
 }
