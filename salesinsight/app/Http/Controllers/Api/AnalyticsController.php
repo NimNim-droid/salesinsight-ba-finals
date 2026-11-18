@@ -145,32 +145,7 @@ class AnalyticsController extends Controller
             ->get();
 
         // ----------------------------------------------------
-        // 5. DESCRIPTIVE: MARKETING PERFORMANCE BY PLATFORM
-        // ----------------------------------------------------
-        $marketingByPlatform = DB::table('marketing_campaigns')
-            ->select('platform')
-            ->selectRaw('SUM(budget) as total_budget')
-            ->selectRaw('SUM(actual_spend) as total_spend')
-            ->selectRaw('SUM(clicks) as clicks')
-            ->selectRaw('SUM(conversions) as conversions')
-            ->groupBy('platform')
-            ->orderByDesc('conversions')
-            ->get()
-            ->map(function ($row) {
-                $spend = (float) $row->total_spend;
-                $conv = (int) $row->conversions;
-                return [
-                    'platform' => $row->platform,
-                    'total_budget' => (float) $row->total_budget,
-                    'total_spend' => $spend,
-                    'clicks' => (int) $row->clicks,
-                    'conversions' => $conv,
-                    'cost_per_conversion' => $conv > 0 ? round($spend / $conv, 2) : 0,
-                ];
-            });
-
-        // ----------------------------------------------------
-        // 6. PREDICTIVE: 3-MONTH MOVING AVERAGE REVENUE FORECAST
+        // 5. PREDICTIVE: 3-MONTH MOVING AVERAGE REVENUE FORECAST
         // Formula: Forecast = (Month 1 + Month 2 + Month 3) / 3
         // ----------------------------------------------------
         // Use full recorded months (excluding current month if incomplete)
@@ -284,18 +259,10 @@ class AnalyticsController extends Controller
         $topProductName = $topProducts->first()->name ?? 'N/A';
         $topProductRev = (float) ($topProducts->first()->revenue ?? 0);
 
-        $bestChannel = $marketingByPlatform
-            ->filter(fn ($row) => $row['conversions'] > 0)
-            ->sortBy('cost_per_conversion')
-            ->first();
-        $bestPlatform = $bestChannel['platform'] ?? 'TikTok';
-        $cheapestCpa = $bestChannel['cost_per_conversion'] ?? 0;
-
         $insights = [
             'monthly_sales' => "Monthly revenue averages ₱" . number_format($forecastRevenue, 0) . " across the last 3 active periods.",
             'category' => "{$topCategoryName} generated the highest revenue among all product categories at ₱" . number_format($topCategoryRev, 0) . " ({$topCategoryPct}% of total sales).",
             'top_products' => "{$topProductName} is the #1 best-selling product, contributing ₱" . number_format($topProductRev, 0) . " in total sales.",
-            'marketing' => "{$bestPlatform} delivered the highest return on ad spend with the lowest acquisition cost of ₱" . number_format($cheapestCpa, 2) . " per buyer.",
         ];
 
         $inventoryAdvice = $lowStock > 0
@@ -309,7 +276,7 @@ class AnalyticsController extends Controller
             'case_study' => [
                 'company' => 'SalesInsight Gadget Store',
                 'location' => 'Cebu City, Philippines',
-                'problem' => 'Optimizing marketing spend across 5 channels & preventing stockouts of fast-moving gadget accessories.',
+                'problem' => 'Preventing stockouts of fast-moving gadget accessories by forecasting demand and recommending restock quantities.',
             ],
             'summary' => [
                 'total_revenue' => round($totalRevenue, 2),
@@ -326,7 +293,6 @@ class AnalyticsController extends Controller
             'monthly_sales' => $monthlySales,
             'top_products' => $topProducts,
             'sales_by_category' => $salesByCategory,
-            'marketing_by_platform' => $marketingByPlatform,
             'inventory_alerts' => $inventoryAlerts,
             'product_demand_forecast' => $productDemandForecast,
             'forecast' => [
@@ -339,9 +305,6 @@ class AnalyticsController extends Controller
                 'explanation' => "The estimated monthly revenue is ₱" . number_format($forecastRevenue, 0) . " based on the average revenue of the previous three active months.",
             ],
             'prescriptive' => [
-                'best_platform' => $bestPlatform,
-                'cheapest_cpa' => $cheapestCpa,
-                'marketing_advice' => "{$bestPlatform} has the lowest cost per buyer among compared platforms (₱" . number_format($cheapestCpa, 2) . "/buyer). Consider allocating more of the advertising budget to {$bestPlatform}.",
                 'inventory_advice' => $inventoryAdvice,
             ],
             'insights' => $insights,

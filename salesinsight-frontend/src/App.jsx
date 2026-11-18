@@ -7,7 +7,7 @@ import {
 import {
   Activity, Boxes, Users, PhilippinePeso, ShoppingBag,
   AlertTriangle, RefreshCw, TrendingUp, Menu, X,
-  ChartNoAxesCombined, Megaphone, Package, CheckCircle2,
+  ChartNoAxesCombined, Package, CheckCircle2,
   Filter, PlusCircle, ArrowRight,
 } from 'lucide-react'
 import './App.css'
@@ -145,10 +145,6 @@ export default function App() {
     payment_method: 'GCash',
     sale_date: new Date().toISOString().slice(0, 10),
   })
-
-  // Marketing Simulator State
-  const [simPlatform, setSimPlatform] = useState('TikTok')
-  const [simBudget, setSimBudget] = useState(15000)
 
   const loadStoreLists = useCallback(async () => {
     const apiBase = getApiBase()
@@ -402,18 +398,6 @@ export default function App() {
     revenue: Number(item.revenue),
   }))
 
-  const marketing = (data?.marketing_by_platform || []).map((item) => ({
-    ...item,
-    conversions: Number(item.conversions),
-    clicks: Number(item.clicks),
-    total_spend: Number(item.total_spend),
-    cost_per_conversion: Number(item.cost_per_conversion || 0),
-  }))
-
-  const selectedPlatformData = marketing.find((m) => m.platform === simPlatform) || marketing[0]
-  const platformCpa = selectedPlatformData?.cost_per_conversion || 46.48
-  const simEstimatedBuyers = simBudget > 0 && platformCpa > 0 ? Math.round(simBudget / platformCpa) : 0
-
   const filteredProducts = products.filter((item) => {
     const q = productSearch.toLowerCase()
     return (
@@ -439,7 +423,7 @@ export default function App() {
     overview: {
       eyebrow: 'STEP 1 · DESCRIPTIVE ANALYTICS',
       title: 'Business Overview',
-      subtitle: 'Summary of past sales, top products, and marketing performance.',
+      subtitle: 'Summary of past sales, revenue by category, and top products.',
     },
     products: {
       eyebrow: 'INVENTORY MANAGEMENT',
@@ -454,12 +438,12 @@ export default function App() {
     predictive: {
       eyebrow: 'STEP 2 · PREDICTIVE ANALYTICS',
       title: 'Sales & Demand Forecast',
-      subtitle: 'Estimates next month revenue, product demand, and ad campaign outcomes from past records.',
+      subtitle: 'Estimates next month revenue and product demand from past sales records.',
     },
     prescriptive: {
       eyebrow: 'STEP 3 · PRESCRIPTIVE ANALYTICS',
       title: 'Recommended Actions',
-      subtitle: 'Clear restock orders and ad budget decisions based on forecasts and safety stock.',
+      subtitle: 'Clear restock orders based on demand forecasts and safety stock.',
     },
   }
 
@@ -801,7 +785,7 @@ export default function App() {
                   </Panel>
                 </div>
 
-                <div className="chart-grid">
+                <div className="chart-grid single">
                   <Panel
                     title="Top-performing products"
                     subtitle="Top 5 products by total sales revenue"
@@ -840,66 +824,6 @@ export default function App() {
                       </>
                     ) : (
                       <p className="empty-state">No products found for this filter.</p>
-                    )}
-                  </Panel>
-
-                  <Panel
-                    title="Marketing performance"
-                    subtitle="Ad platforms ranked by buyers & cost per buyer (Spend ÷ Buyers)"
-                  >
-                    {marketing.length ? (
-                      <>
-                        <div className="marketing-list">
-                          {marketing.map((item, index) => (
-                            <div className="marketing-item" key={item.platform}>
-                              <div
-                                className="marketing-rank"
-                                style={{
-                                  background: `${colors[index % colors.length]}18`,
-                                  color: colors[index % colors.length],
-                                }}
-                              >
-                                {index + 1}
-                              </div>
-
-                              <div className="marketing-info">
-                                <div className="marketing-title">
-                                  <strong>
-                                    {item.platform}{' '}
-                                    {item.platform === data?.prescriptive?.best_platform && (
-                                      <span style={{ color: '#10b981', fontSize: '11px', fontWeight: 700 }}>
-                                        ★ Best ROI
-                                      </span>
-                                    )}
-                                  </strong>
-                                  <span>{item.conversions} buyers (₱{item.cost_per_conversion} / buyer)</span>
-                                </div>
-
-                                <div className="progress-track">
-                                  <div
-                                    style={{
-                                      width: `${Math.min(
-                                        100,
-                                        (item.conversions / Math.max(...marketing.map((m) => m.conversions), 1)) * 100,
-                                      )}%`,
-                                      background: colors[index % colors.length],
-                                    }}
-                                  />
-                                </div>
-
-                                <small>
-                                  {item.clicks.toLocaleString()} clicks · Spend {formatMoneyShort(item.total_spend)}
-                                </small>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <p className="chart-explanation">
-                          <strong>Insight:</strong> {data?.insights?.marketing}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="empty-state">No marketing data yet.</p>
                     )}
                   </Panel>
                 </div>
@@ -953,46 +877,6 @@ export default function App() {
                         </div>
                       </div>
                     )}
-
-                    {/* Interactive What-If Simulator */}
-                    <div className="simulator-box">
-                      <strong>What-If Marketing Simulator</strong>
-                      <p className="sim-desc">
-                        Test how many buyers a future ad budget might bring in (<code>Budget ÷ Cost Per Buyer</code>).
-                      </p>
-                      <div className="sim-controls">
-                        <label>
-                          <span>Platform</span>
-                          <select
-                            className="filter-select"
-                            value={simPlatform}
-                            onChange={(e) => setSimPlatform(e.target.value)}
-                          >
-                            {marketing.map((m) => (
-                              <option key={m.platform} value={m.platform}>
-                                {m.platform} (₱{m.cost_per_conversion} / buyer)
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-
-                        <label>
-                          <span>Budget (₱)</span>
-                          <input
-                            type="number"
-                            step="1000"
-                            min="1000"
-                            max="500000"
-                            className="form-input"
-                            value={simBudget}
-                            onChange={(e) => setSimBudget(Number(e.target.value))}
-                          />
-                        </label>
-                      </div>
-                      <div className="sim-result">
-                        Estimated New Buyers: <strong>≈ {simEstimatedBuyers.toLocaleString()} buyers</strong> on {simPlatform}
-                      </div>
-                    </div>
                   </Panel>
 
                   <Panel
@@ -1044,7 +928,7 @@ export default function App() {
                     <strong>How Prescriptive Analytics Works Here</strong>
                     <p>
                       Prescriptive analytics turns forecasts into <strong>exact actions</strong>: which items to restock today, how many units to order
-                      (<code>Predicted Demand + Safety Stock - Current Stock</code>), and where to focus ad spend.
+                      (<code>Predicted Demand + Safety Stock - Current Stock</code>).
                     </p>
                   </div>
                 </div>
@@ -1140,12 +1024,11 @@ export default function App() {
                 </Panel>
 
                 <div className="prescriptive-summary-card">
-                  <Megaphone size={20} color="#059669" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <CheckCircle2 size={20} color="#059669" style={{ flexShrink: 0, marginTop: '2px' }} />
                   <div>
-                    <strong>Recommended Marketing & Business Decisions</strong>
+                    <strong>Recommended Business Decision</strong>
                     <p>
-                      1. <strong>Marketing Optimization:</strong> {data?.prescriptive?.marketing_advice}<br />
-                      2. <strong>Inventory Optimization:</strong> {data?.prescriptive?.inventory_advice}
+                      <strong>Inventory Optimization:</strong> {data?.prescriptive?.inventory_advice}
                     </p>
                   </div>
                 </div>

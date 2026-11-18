@@ -346,6 +346,9 @@ html {
 .stats-grid-3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
+.chart-grid.single {
+  grid-template-columns: minmax(0, 1fr);
+}
 .math-breakdown {
   margin-top: 14px;
   padding: 12px 14px;
@@ -376,41 +379,6 @@ html {
   justify-content: space-between;
   padding-top: 8px;
   color: #4f46e5;
-}
-.simulator-box {
-  margin-top: 16px;
-  padding: 14px;
-  background: #f8fafc;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-}
-.simulator-box > strong {
-  display: block;
-  font-size: 12px;
-  color: #1e293b;
-  margin-bottom: 4px;
-}
-.sim-desc {
-  font-size: 11px;
-  color: #64748b;
-  margin-bottom: 10px;
-}
-.sim-controls {
-  display: grid;
-  grid-template-columns: 1fr 140px;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-.sim-controls label span {
-  display: block;
-  font-size: 11px;
-  color: #64748b;
-  margin-bottom: 4px;
-  font-weight: 600;
-}
-.sim-result {
-  font-size: 12px;
-  color: #047857;
 }
 .crud-form {
   display: grid;
@@ -544,6 +512,6 @@ html {
 }
 @media (max-width: 650px) {
   .stats-grid-3 { grid-template-columns: minmax(0, 1fr); }
-  .crud-form, .sim-controls { grid-template-columns: minmax(0, 1fr); }
+  .crud-form { grid-template-columns: minmax(0, 1fr); }
   .form-submit-wrap { justify-content: space-between; }
 }
