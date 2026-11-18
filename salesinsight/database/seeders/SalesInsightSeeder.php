@@ -46,12 +46,13 @@ class SalesInsightSeeder extends Seeder
 
             $types = ['Regular', 'VIP', 'New'];
 
+            $customerRows = [];
             for ($i = 0; $i < 50; $i++) {
                 $fullName = $firstNames[$i] . ' ' . $lastNames[$i];
                 $cleanName = strtolower(str_replace(' ', '', $fullName));
                 $email = $cleanName . ($i + 1) . '@gmail.com';
 
-                DB::table('customers')->insert([
+                $customerRows[] = [
                     'customer_code' => sprintf('CUS-%03d', $i + 1),
                     'full_name' => $fullName,
                     'email' => $email,
@@ -59,8 +60,9 @@ class SalesInsightSeeder extends Seeder
                     'customer_type' => $types[$i % count($types)],
                     'created_at' => now()->subDays(180 - ($i * 3)),
                     'updated_at' => now(),
-                ]);
+                ];
             }
+            DB::table('customers')->insert($customerRows);
 
             // 2. Realistic Gadget & Electronics Products (50 records: 10 per category)
             $gadgetProducts = [
@@ -125,8 +127,9 @@ class SalesInsightSeeder extends Seeder
                 ['name' => 'SanDisk Ultra 128GB MicroSD Card with Adapter', 'category' => 'Accessories', 'cost' => 360.00, 'price' => 550.00],
             ];
 
+            $productRows = [];
             foreach ($gadgetProducts as $idx => $p) {
-                DB::table('products')->insert([
+                $productRows[] = [
                     'product_code' => sprintf('PRD-%03d', $idx + 1),
                     'name' => $p['name'],
                     'category' => $p['category'],
@@ -134,8 +137,9 @@ class SalesInsightSeeder extends Seeder
                     'cost_price' => $p['cost'],
                     'created_at' => now()->subDays(180),
                     'updated_at' => now(),
-                ]);
+                ];
             }
+            DB::table('products')->insert($productRows);
 
             // 3. Realistic Marketing Campaigns (50 records)
             $platforms = ['TikTok', 'Instagram', 'Google Ads', 'Facebook', 'Email'];
@@ -146,6 +150,7 @@ class SalesInsightSeeder extends Seeder
                 'Fast Charger & Battery Fest'
             ];
 
+            $campaignRows = [];
             for ($i = 0; $i < 50; $i++) {
                 $platform = $platforms[$i % count($platforms)];
                 $theme = $campaignThemes[$i % count($campaignThemes)];
@@ -171,7 +176,7 @@ class SalesInsightSeeder extends Seeder
                     $conv = max(7, (int) round($spend / 58.20));
                 }
 
-                DB::table('marketing_campaigns')->insert([
+                $campaignRows[] = [
                     'campaign_code' => sprintf('CAM-%03d', $i + 1),
                     'campaign_name' => "$theme - $platform " . (intval($i / 5) + 1),
                     'platform' => $platform,
@@ -183,14 +188,16 @@ class SalesInsightSeeder extends Seeder
                     'conversions' => $conv,
                     'created_at' => $start,
                     'updated_at' => now(),
-                ]);
+                ];
             }
+            DB::table('marketing_campaigns')->insert($campaignRows);
 
             // 4. Realistic Sales Transactions (120 records spread across May to Nov)
             $customerIds = DB::table('customers')->orderBy('id')->pluck('id')->all();
             $products = DB::table('products')->orderBy('id')->get();
             $paymentMethods = ['GCash', 'Cash', 'Card', 'Maya'];
 
+            $saleRows = [];
             for ($i = 0; $i < 120; $i++) {
                 $customerId = $customerIds[($i * 7) % count($customerIds)];
                 // Distribute products with higher weights to fast-moving items (chargers, cases, audio)
@@ -205,7 +212,7 @@ class SalesInsightSeeder extends Seeder
                 $daysAgo = (int) (180 - ($i * 1.45));
                 $saleDate = now()->subDays(max(0, $daysAgo))->toDateString();
 
-                DB::table('sales')->insert([
+                $saleRows[] = [
                     'transaction_code' => sprintf('SAL-%04d', $i + 1),
                     'customer_id' => $customerId,
                     'product_id' => $product->id,
@@ -216,12 +223,16 @@ class SalesInsightSeeder extends Seeder
                     'payment_method' => $paymentMethods[$i % count($paymentMethods)],
                     'created_at' => $saleDate,
                     'updated_at' => now(),
-                ]);
+                ];
+            }
+            foreach (array_chunk($saleRows, 50) as $chunk) {
+                DB::table('sales')->insert($chunk);
             }
 
             // 5. Realistic Inventories (50 records: 1 per product)
             $locations = ['Main Store - Ayala Cebu', 'SM City Cebu Branch', 'IT Park Hub'];
 
+            $inventoryRows = [];
             foreach ($products as $idx => $product) {
                 // Designate 8-10 specific products to be low in stock (below or equal to reorder level)
                 // to showcase the Prescriptive Analytics Inventory Alert feature
@@ -235,7 +246,7 @@ class SalesInsightSeeder extends Seeder
                     $stockQuantity = 25 + (($idx * 17) % 60); // 25 to 80 units (Healthy)
                 }
 
-                DB::table('inventories')->insert([
+                $inventoryRows[] = [
                     'product_id' => $product->id,
                     'location' => $locations[$idx % count($locations)],
                     'stock_quantity' => $stockQuantity,
@@ -243,8 +254,9 @@ class SalesInsightSeeder extends Seeder
                     'last_restocked_at' => now()->subDays(10 + ($idx % 40))->toDateString(),
                     'created_at' => now()->subDays(180),
                     'updated_at' => now(),
-                ]);
+                ];
             }
+            DB::table('inventories')->insert($inventoryRows);
         });
     }
 }

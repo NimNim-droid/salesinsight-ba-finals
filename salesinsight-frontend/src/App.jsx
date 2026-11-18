@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -52,7 +52,9 @@ export default function App() {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [loadingMessage, setLoadingMessage] = useState('Loading your business data...')
   const [menuOpen, setMenuOpen] = useState(false)
+  const requestCounterRef = useRef(0)
 
   // Interactive Filter States
   const [period, setPeriod] = useState('all_time')
@@ -64,21 +66,64 @@ export default function App() {
   const [simBudget, setSimBudget] = useState(15000)
 
   async function loadAnalytics(p = period, c = category) {
+    const requestId = ++requestCounterRef.current
     setLoading(true)
     setError('')
+    setLoadingMessage('Loading your business data...')
+
+    const slowServerTimer = setTimeout(() => {
+      if (requestId === requestCounterRef.current) {
+        setLoadingMessage('Waking up the server... First load can take up to 50 seconds on the free plan.')
+      }
+    }, 4000)
+
+    const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+    const maxAttempts = 4
 
     try {
-      const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
-      const response = await fetch(`${apiBase}/api/analytics?period=${p}&category=${c}`)
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`)
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 25000)
+
+        try {
+          const response = await fetch(`${apiBase}/api/analytics?period=${p}&category=${c}`, {
+            signal: controller.signal,
+          })
+
+          if (!response.ok) {
+            const err = new Error(`Server returned ${response.status}`)
+            err.retryable = response.status >= 500
+            throw err
+          }
+
+          const json = await response.json()
+          if (requestId === requestCounterRef.current) {
+            setData(json)
+          }
+          return
+        } catch (err) {
+          const isTimeout = err.name === 'AbortError'
+          const isRetryable = isTimeout || err.retryable || err instanceof TypeError
+
+          if (attempt < maxAttempts && isRetryable && requestId === requestCounterRef.current) {
+            setLoadingMessage(`Waking up the server (attempt ${attempt + 1}/${maxAttempts})... Please wait.`)
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+            continue
+          }
+
+          if (requestId === requestCounterRef.current) {
+            setError(isTimeout ? 'Server request timed out while waking up' : (err.message || 'Unable to load analytics'))
+          }
+          return
+        } finally {
+          clearTimeout(timeoutId)
+        }
       }
-      const json = await response.json()
-      setData(json)
-    } catch (err) {
-      setError(err.message || 'Unable to load analytics')
     } finally {
-      setLoading(false)
+      clearTimeout(slowServerTimer)
+      if (requestId === requestCounterRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -280,14 +325,19 @@ export default function App() {
             <AlertTriangle size={20} />
             <div>
               <strong>Could not load analytics</strong>
-              <p>{error}. Check that Laravel is running at port 8000.</p>
+              <p>
+                {error}.{' '}
+                {import.meta.env.DEV
+                  ? 'Check that Laravel is running at port 8000.'
+                  : 'The backend server may still be waking up. Wait a moment and click Try again.'}
+              </p>
               <button onClick={() => loadAnalytics(period, category)}>Try again</button>
             </div>
           </div>
         )}
 
         {loading && !data ? (
-          <div className="loading-box">Loading your business data from MySQL...</div>
+          <div className="loading-box">{loadingMessage}</div>
         ) : data && (
           <>
             {/* Business Analytics 3-Step Process Connection Banner (Interactive) */}

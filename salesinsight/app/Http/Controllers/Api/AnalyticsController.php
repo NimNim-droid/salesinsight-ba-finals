@@ -212,7 +212,7 @@ class AnalyticsController extends Controller
         // Formula: Suggested Reorder = Max(0, Predicted Demand + Safety Stock - Current Stock)
         // Where: Safety Stock = Reorder Level
         // ----------------------------------------------------
-        $inventoryAlerts = DB::table('inventories')
+        $lowStockItems = DB::table('inventories')
             ->join('products', 'inventories.product_id', '=', 'products.id')
             ->whereColumn('inventories.stock_quantity', '<=', 'inventories.reorder_level')
             ->select(
@@ -224,15 +224,24 @@ class AnalyticsController extends Controller
             )
             ->orderBy('inventories.stock_quantity')
             ->limit(10)
-            ->get()
-            ->map(function ($row) use ($solidMonths) {
+            ->get();
+
+        $salesQtyByProduct = $lowStockItems->isEmpty()
+            ? collect()
+            : DB::table('sales')
+                ->whereIn('product_id', $lowStockItems->pluck('product_id'))
+                ->select('product_id')
+                ->selectRaw('SUM(quantity) as total_qty')
+                ->groupBy('product_id')
+                ->pluck('total_qty', 'product_id');
+
+        $inventoryAlerts = $lowStockItems
+            ->map(function ($row) use ($solidMonths, $salesQtyByProduct) {
                 $stock = (int) $row->stock_quantity;
                 $safetyStock = (int) $row->reorder_level;
 
                 // Look up product monthly sales demand
-                $unitsSold = DB::table('sales')
-                    ->where('product_id', $row->product_id)
-                    ->sum('quantity');
+                $unitsSold = (int) ($salesQtyByProduct[$row->product_id] ?? 0);
 
                 $monthCount = max(1, $solidMonths->count());
                 $predictedDemand = max(10, (int) ceil($unitsSold / $monthCount * 3)); // 3-month target

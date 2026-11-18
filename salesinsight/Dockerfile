@@ -20,5 +20,5 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction \
 
 EXPOSE 10000
 
-# Run migrations, seed sample data, and start the Laravel server on Render's $PORT
-CMD sh -c "touch database/database.sqlite && php artisan config:clear && php artisan migrate --force && php artisan db:seed --class=SalesInsightSeeder --force && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"
+# Run migrations, seed sample data only if empty, and start the Laravel server on Render's $PORT
+CMD sh -c "touch database/database.sqlite && php artisan config:clear && php artisan migrate --force && php artisan app:ensure-seeded && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"
