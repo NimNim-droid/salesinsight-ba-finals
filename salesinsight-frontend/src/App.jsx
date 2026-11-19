@@ -171,10 +171,11 @@ export default function App() {
       if (prodRes.ok) {
         const prodJson = await prodRes.json()
         const list = prodJson.products || []
+        const alphabetical = [...list].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
         setProducts(list)
         setNewSale((prev) => ({
           ...prev,
-          product_id: prev.product_id || (list[0]?.id ? String(list[0].id) : ''),
+          product_id: prev.product_id || (alphabetical[0]?.id ? String(alphabetical[0].id) : ''),
         }))
       }
       if (salesRes.ok) {
@@ -429,6 +430,10 @@ export default function App() {
     ...item,
     revenue: Number(item.revenue),
   }))
+
+  const sortedProducts = [...products].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+  )
 
   const filteredProducts = products.filter((item) => {
     const q = productSearch.toLowerCase()
@@ -1208,7 +1213,7 @@ export default function App() {
                         value={newSale.product_id}
                         onChange={(e) => setNewSale({ ...newSale, product_id: e.target.value })}
                       >
-                        {products.map((p) => (
+                        {sortedProducts.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.name} ({formatMoneyShort(p.price)} · {p.stock_quantity} in stock)
                           </option>
