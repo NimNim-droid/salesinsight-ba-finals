@@ -8,7 +8,7 @@ import {
   Activity, Boxes, PhilippinePeso, ShoppingBag,
   AlertTriangle, RefreshCw, TrendingUp, Menu, X,
   ChartNoAxesCombined, Package, CheckCircle2,
-  Filter, PlusCircle, ArrowRight,
+  Filter, PlusCircle,
 } from 'lucide-react'
 import './App.css'
 
@@ -586,36 +586,6 @@ export default function App() {
             <span>{loading ? 'Loading...' : 'Refresh data'}</span>
           </button>
         </header>
-
-        {/* 3-Step Business Analytics Page Switcher */}
-        <div className="ba-workflow-bar">
-          <button
-            type="button"
-            className={`ba-workflow-step-btn ${activePage === 'overview' ? 'is-active' : ''}`}
-            onClick={() => switchPage('overview')}
-          >
-            <span className="ba-badge desc">Step 1: Descriptive</span>
-            <span>What Happened (Sales & Ads)</span>
-          </button>
-          <span className="ba-arrow"><ArrowRight size={14} /></span>
-          <button
-            type="button"
-            className={`ba-workflow-step-btn ${activePage === 'predictive' ? 'is-active' : ''}`}
-            onClick={() => switchPage('predictive')}
-          >
-            <span className="ba-badge pred">Step 2: Predictive</span>
-            <span>What Will Happen (Forecasts)</span>
-          </button>
-          <span className="ba-arrow"><ArrowRight size={14} /></span>
-          <button
-            type="button"
-            className={`ba-workflow-step-btn ${activePage === 'prescriptive' ? 'is-active' : ''}`}
-            onClick={() => switchPage('prescriptive')}
-          >
-            <span className="ba-badge presc">Step 3: Prescriptive</span>
-            <span>What To Do (Restock & Ads)</span>
-          </button>
-        </div>
 
         <p className="page-subtitle">{currentHeader.subtitle}</p>
 

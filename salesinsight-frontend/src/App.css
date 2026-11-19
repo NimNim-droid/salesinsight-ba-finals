@@ -312,6 +312,7 @@ html {
 .page-subtitle {
   color: #64748b;
   font-size: 13px;
+  margin-top: 10px;
   margin-bottom: 20px;
 }
 .success-banner {
