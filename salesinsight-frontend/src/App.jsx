@@ -67,12 +67,23 @@ function getApiBase() {
   return (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 }
 
-async function fetchWithRetry(url, onStatusChange) {
+async function fetchWithRetry(url, onStatusChange, externalSignal) {
   const maxAttempts = 4
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (externalSignal?.aborted) {
+      throw new DOMException('Request cancelled', 'AbortError')
+    }
+
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 25000)
+    let timedOut = false
+    const onExternalAbort = () => controller.abort()
+    externalSignal?.addEventListener('abort', onExternalAbort, { once: true })
+
+    const timeoutId = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, 25000)
 
     try {
       const response = await fetch(url, { signal: controller.signal })
@@ -83,8 +94,11 @@ async function fetchWithRetry(url, onStatusChange) {
       }
       return await response.json()
     } catch (err) {
-      const isTimeout = err.name === 'AbortError'
-      const isRetryable = isTimeout || err.retryable || err instanceof TypeError
+      if (externalSignal?.aborted) {
+        throw err
+      }
+
+      const isRetryable = timedOut || err.retryable || err instanceof TypeError
 
       if (attempt < maxAttempts && isRetryable) {
         onStatusChange?.(`Waking up the server (attempt ${attempt + 1}/${maxAttempts})... Please wait.`)
@@ -92,12 +106,13 @@ async function fetchWithRetry(url, onStatusChange) {
         continue
       }
 
-      if (isTimeout) {
+      if (timedOut) {
         throw new Error('Server request timed out while waking up', { cause: err })
       }
       throw err
     } finally {
       clearTimeout(timeoutId)
+      externalSignal?.removeEventListener('abort', onExternalAbort)
     }
   }
 }
@@ -112,6 +127,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [loadingMessage, setLoadingMessage] = useState('Loading your business data...')
   const requestCounterRef = useRef(0)
+  const activeAbortRef = useRef(null)
 
   // Management data (Products, Sales, Customers)
   const [products, setProducts] = useState([])
@@ -183,8 +199,13 @@ export default function App() {
   }, [])
 
   const loadAnalytics = useCallback(async (p, c) => {
+    activeAbortRef.current?.abort()
+    const abortController = new AbortController()
+    activeAbortRef.current = abortController
+
     const requestId = ++requestCounterRef.current
     const apiBase = getApiBase()
+    const params = new URLSearchParams({ period: p, category: c })
 
     const slowTimer = setTimeout(() => {
       if (requestId === requestCounterRef.current) {
@@ -194,12 +215,13 @@ export default function App() {
 
     try {
       const json = await fetchWithRetry(
-        `${apiBase}/api/analytics?period=${p}&category=${c}`,
+        `${apiBase}/api/analytics?${params.toString()}`,
         (msg) => {
           if (requestId === requestCounterRef.current) {
             setLoadingMessage(msg)
           }
         },
+        abortController.signal,
       )
 
       if (requestId === requestCounterRef.current) {
@@ -207,6 +229,9 @@ export default function App() {
         setError('')
       }
     } catch (err) {
+      if (abortController.signal.aborted) {
+        return
+      }
       if (requestId === requestCounterRef.current) {
         setError(err.message || 'Unable to load analytics')
       }
@@ -220,6 +245,9 @@ export default function App() {
 
   useEffect(() => {
     let active = true
+    const mountController = new AbortController()
+    activeAbortRef.current = mountController
+
     const apiBase = getApiBase()
     const slowTimer = setTimeout(() => {
       if (active) {
@@ -227,9 +255,13 @@ export default function App() {
       }
     }, 4000)
 
-    fetchWithRetry(`${apiBase}/api/analytics?period=all_time&category=all`, (msg) => {
-      if (active) setLoadingMessage(msg)
-    })
+    fetchWithRetry(
+      `${apiBase}/api/analytics?period=all_time&category=all`,
+      (msg) => {
+        if (active) setLoadingMessage(msg)
+      },
+      mountController.signal,
+    )
       .then((json) => {
         if (!active) return
         setData(json)
@@ -237,7 +269,7 @@ export default function App() {
         loadStoreLists()
       })
       .catch((err) => {
-        if (!active) return
+        if (!active || mountController.signal.aborted) return
         setError(err.message || 'Unable to load analytics')
       })
       .finally(() => {
@@ -247,6 +279,7 @@ export default function App() {
 
     return () => {
       active = false
+      mountController.abort()
       clearTimeout(slowTimer)
     }
   }, [loadStoreLists])
@@ -378,14 +411,27 @@ export default function App() {
 
   const summary = data?.summary
 
-  const monthlySales = (data?.monthly_sales || []).map((item) => ({
-    ...item,
-    month: new Date(`${item.month}-01T00:00:00`).toLocaleDateString(
-      'en-US',
-      { month: 'short', year: '2-digit' },
-    ),
-    revenue: Number(item.revenue),
-  }))
+  const isDailyTrend = data?.trend_granularity === 'daily'
+  const isFiltered = period !== 'all_time' || category !== 'all'
+
+  const monthlySales = (data?.monthly_sales || []).map((item) => {
+    const raw = String(item.month || '')
+    const parsedDate = raw.length === 7
+      ? new Date(`${raw}-01T00:00:00`)
+      : new Date(`${raw}T00:00:00`)
+    const label = Number.isNaN(parsedDate.getTime())
+      ? raw
+      : parsedDate.toLocaleDateString(
+        'en-US',
+        isDailyTrend ? { month: 'short', day: 'numeric' } : { month: 'short', year: '2-digit' },
+      )
+
+    return {
+      ...item,
+      month: label,
+      revenue: Number(item.revenue),
+    }
+  })
 
   const topProducts = (data?.top_products || []).map((item) => ({
     ...item,
@@ -668,9 +714,16 @@ export default function App() {
                       ))}
                     </select>
                   </div>
+
+                  {loading && (
+                    <span className="filter-status">
+                      <RefreshCw size={13} className="spinning" />
+                      <span>Updating...</span>
+                    </span>
+                  )}
                 </div>
 
-                <div className="stats-grid">
+                <div className={`stats-grid ${loading ? 'is-updating' : ''}`}>
                   <StatCard
                     title="Total revenue"
                     value={formatMoneyShort(summary.total_revenue)}
@@ -686,7 +739,7 @@ export default function App() {
                   <StatCard
                     title="Customers"
                     value={Number(summary.total_customers).toLocaleString()}
-                    subtitle="Registered accounts"
+                    subtitle={isFiltered ? 'Active buyers in filter' : 'Registered accounts'}
                     icon={Users}
                   />
                   <StatCard
@@ -697,10 +750,10 @@ export default function App() {
                   />
                 </div>
 
-                <div className="chart-grid">
+                <div className={`chart-grid ${loading ? 'is-updating' : ''}`}>
                   <Panel
                     title="Revenue over time"
-                    subtitle="Monthly sales revenue trend"
+                    subtitle={isDailyTrend ? 'Daily sales revenue trend' : 'Monthly sales revenue trend'}
                   >
                     {monthlySales.length ? (
                       <>
@@ -736,6 +789,8 @@ export default function App() {
                               name="Revenue"
                               stroke="#6366f1"
                               strokeWidth={3}
+                              dot={{ r: 4, fill: '#6366f1', strokeWidth: 0 }}
+                              activeDot={{ r: 6 }}
                               fill="url(#revenueFill)"
                             />
                           </AreaChart>
@@ -745,7 +800,7 @@ export default function App() {
                         </p>
                       </>
                     ) : (
-                      <p className="empty-state">No monthly sales data for this filter.</p>
+                      <p className="empty-state">No sales recorded for this period and category.</p>
                     )}
                   </Panel>
 

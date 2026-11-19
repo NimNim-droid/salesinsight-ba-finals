@@ -187,6 +187,22 @@ html {
 .filter-select:focus {
   border-color: #6366f1;
 }
+.filter-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5b5ce2;
+  background: #eef2ff;
+  padding: 5px 10px;
+  border-radius: 999px;
+}
+.is-updating {
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
 
 .chart-explanation {
   font-size: 11px;

@@ -19,6 +19,7 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction \
     && chmod -R 775 storage bootstrap/cache database
 
 EXPOSE 10000
+ENV PHP_CLI_SERVER_WORKERS=4
 
 # Run migrations, seed sample data only if empty, and start the Laravel server on Render's $PORT
 CMD sh -c "touch database/database.sqlite && php artisan config:clear && php artisan migrate --force && php artisan app:ensure-seeded && php artisan config:cache && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"
