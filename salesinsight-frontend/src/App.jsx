@@ -5,7 +5,7 @@ import {
   Legend,
 } from 'recharts'
 import {
-  Activity, Boxes, Users, PhilippinePeso, ShoppingBag,
+  Activity, Boxes, PhilippinePeso, ShoppingBag,
   AlertTriangle, RefreshCw, TrendingUp, Menu, X,
   ChartNoAxesCombined, Package, CheckCircle2,
   Filter, PlusCircle, ArrowRight,
@@ -129,10 +129,9 @@ export default function App() {
   const requestCounterRef = useRef(0)
   const activeAbortRef = useRef(null)
 
-  // Management data (Products, Sales, Customers)
+  // Management data (Products, Sales)
   const [products, setProducts] = useState([])
   const [sales, setSales] = useState([])
-  const [customers, setCustomers] = useState([])
   const [actionBanner, setActionBanner] = useState('')
   const [actionError, setActionError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -156,7 +155,6 @@ export default function App() {
   // Record Sale Form State
   const [newSale, setNewSale] = useState({
     product_id: '',
-    customer_id: '',
     quantity: '1',
     payment_method: 'GCash',
     sale_date: new Date().toISOString().slice(0, 10),
@@ -165,10 +163,9 @@ export default function App() {
   const loadStoreLists = useCallback(async () => {
     const apiBase = getApiBase()
     try {
-      const [prodRes, salesRes, custRes] = await Promise.all([
+      const [prodRes, salesRes] = await Promise.all([
         fetch(`${apiBase}/api/products`),
         fetch(`${apiBase}/api/sales`),
-        fetch(`${apiBase}/api/customers`),
       ])
 
       if (prodRes.ok) {
@@ -183,15 +180,6 @@ export default function App() {
       if (salesRes.ok) {
         const salesJson = await salesRes.json()
         setSales(salesJson.sales || [])
-      }
-      if (custRes.ok) {
-        const custJson = await custRes.json()
-        const list = custJson.customers || []
-        setCustomers(list)
-        setNewSale((prev) => ({
-          ...prev,
-          customer_id: prev.customer_id || (list[0]?.id ? String(list[0].id) : ''),
-        }))
       }
     } catch {
       // Secondary lists will retry on next refresh or tab switch
@@ -386,7 +374,6 @@ export default function App() {
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           product_id: Number(newSale.product_id),
-          customer_id: newSale.customer_id ? Number(newSale.customer_id) : null,
           quantity: Number(newSale.quantity),
           payment_method: newSale.payment_method,
           sale_date: newSale.sale_date,
@@ -412,7 +399,6 @@ export default function App() {
   const summary = data?.summary
 
   const isDailyTrend = data?.trend_granularity === 'daily'
-  const isFiltered = period !== 'all_time' || category !== 'all'
 
   const monthlySales = (data?.monthly_sales || []).map((item) => {
     const raw = String(item.month || '')
@@ -723,7 +709,7 @@ export default function App() {
                   )}
                 </div>
 
-                <div className={`stats-grid ${loading ? 'is-updating' : ''}`}>
+                <div className={`stats-grid stats-grid-3 ${loading ? 'is-updating' : ''}`}>
                   <StatCard
                     title="Total revenue"
                     value={formatMoneyShort(summary.total_revenue)}
@@ -735,12 +721,6 @@ export default function App() {
                     value={Number(summary.total_sales).toLocaleString()}
                     subtitle="Completed orders"
                     icon={ShoppingBag}
-                  />
-                  <StatCard
-                    title="Customers"
-                    value={Number(summary.total_customers).toLocaleString()}
-                    subtitle={isFiltered ? 'Active buyers in filter' : 'Registered accounts'}
-                    icon={Users}
                   />
                   <StatCard
                     title="Products"
@@ -1267,21 +1247,6 @@ export default function App() {
                     </label>
 
                     <label>
-                      <span>Customer</span>
-                      <select
-                        className="form-input"
-                        value={newSale.customer_id}
-                        onChange={(e) => setNewSale({ ...newSale, customer_id: e.target.value })}
-                      >
-                        {customers.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.full_name} ({c.city})
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label>
                       <span>Quantity *</span>
                       <input
                         type="number"
@@ -1333,7 +1298,7 @@ export default function App() {
 
                 <Panel
                   title={`Recent Sales Transactions (${sales.length})`}
-                  subtitle="Most recent recorded customer orders"
+                  subtitle="Most recent recorded orders"
                   className="panel-spaced"
                 >
                   <div className="table-wrap">
@@ -1343,7 +1308,6 @@ export default function App() {
                           <th>Code</th>
                           <th>Date</th>
                           <th>Product</th>
-                          <th>Customer</th>
                           <th>Qty</th>
                           <th>Total Amount</th>
                           <th>Payment</th>
@@ -1355,7 +1319,6 @@ export default function App() {
                             <td>{s.transaction_code}</td>
                             <td>{s.sale_date}</td>
                             <td><strong>{s.product_name}</strong></td>
-                            <td>{s.customer_name}</td>
                             <td>{s.quantity}</td>
                             <td><strong>{formatMoney(s.total_amount)}</strong></td>
                             <td>{s.payment_method}</td>
